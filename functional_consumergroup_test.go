@@ -186,7 +186,7 @@ func TestConsumergroupInstanceCrash(t *testing.T) {
 	}
 
 	// Simulate a crash, and wait for Zookeeper to pick it up
-	crashingKazoo.Close()
+	_ = crashingKazoo.Close()
 	time.Sleep(200 * time.Millisecond)
 
 	if instances, err := cg.Instances(); err != nil {

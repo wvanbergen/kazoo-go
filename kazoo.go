@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samuel/go-zookeeper/zk"
@@ -14,6 +15,17 @@ import (
 var (
 	FailedToClaimPartition = errors.New("Failed to claim partition for this consumer instance. Do you have a rogue consumer running?")
 )
+
+// ParseConnectionString parses a zookeeper connection string in the form of
+// host1:2181,host2:2181/chroot and returns the list of servers, and the chroot.
+func ParseConnectionString(zookeeper string) (nodes []string, chroot string) {
+	nodesAndChroot := strings.SplitN(zookeeper, "/", 2)
+	if len(nodesAndChroot) == 2 {
+		chroot = fmt.Sprintf("/%s", nodesAndChroot[1])
+	}
+	nodes = strings.Split(nodesAndChroot[0], ",")
+	return
+}
 
 // Kazoo interacts with the Kafka metadata in Zookeeper
 type Kazoo struct {
@@ -47,6 +59,18 @@ func NewKazoo(servers []string, conf *Config) (*Kazoo, error) {
 		return nil, err
 	}
 	return &Kazoo{conn, conf}, nil
+}
+
+// NewKazooFromConnectionString creates a new connection instance
+// based on a zookeeer connection string that can include a chroot.
+func NewKazooFromConnectionString(connectionString string, conf *Config) (*Kazoo, error) {
+	if conf == nil {
+		conf = NewConfig()
+	}
+
+	nodes, chroot := ParseConnectionString(connectionString)
+	conf.Chroot = chroot
+	return NewKazoo(nodes, conf)
 }
 
 // Brokers returns a map of all the brokers that make part of the

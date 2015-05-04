@@ -15,13 +15,15 @@ func TestTopics(t *testing.T) {
 		t.Error(err)
 	}
 
-	if topic, ok := topics["test.4"]; !ok {
+	existingTopic := topics.Find("test.4")
+	if existingTopic == nil {
 		t.Error("Expected topic test.4 to be returned")
-	} else if topic.Name != "test.4" {
+	} else if existingTopic.Name != "test.4" {
 		t.Error("Expected topic test.4 to have its name set")
 	}
 
-	if _, ok := topics["__nonexistent__"]; ok {
+	nonexistingTopic := topics.Find("__nonexistent__")
+	if nonexistingTopic != nil {
 		t.Error("Expected __nonexistent__ topic to not be defined")
 	}
 
@@ -48,8 +50,8 @@ func TestTopicPartitions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for partitionID, partition := range partitions {
-		if partition.ID != partitionID {
+	for index, partition := range partitions {
+		if partition.ID != int32(index) {
 			t.Error("partition.ID is not set properly")
 		}
 
@@ -59,7 +61,7 @@ func TestTopicPartitions(t *testing.T) {
 		}
 
 		if _, ok := brokers[leader]; !ok {
-			t.Errorf("Expected the leader of test.4/%d to be an existing broker.", partitionID)
+			t.Errorf("Expected the leader of test.4/%d to be an existing broker.", partition.ID)
 		}
 
 		isr, err := partition.ISR()
@@ -69,7 +71,7 @@ func TestTopicPartitions(t *testing.T) {
 
 		for _, brokerID := range isr {
 			if _, ok := brokers[brokerID]; !ok {
-				t.Errorf("Expected all ISRs of test.4/%d to be existing brokers.", partitionID)
+				t.Errorf("Expected all ISRs of test.4/%d to be existing brokers.", partition.ID)
 			}
 		}
 	}

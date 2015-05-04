@@ -12,6 +12,8 @@ type Topic struct {
 	kz   *Kazoo
 }
 
+type TopicList []*Topic
+
 // Partition interacts with Kafka's partition metadata in Zookeeper.
 type Partition struct {
 	topic    *Topic
@@ -19,17 +21,19 @@ type Partition struct {
 	Replicas []int32
 }
 
+type PartitionList []*Partition
+
 // Topics returns a map of all registered Kafka topics.
-func (kz *Kazoo) Topics() (map[string]*Topic, error) {
+func (kz *Kazoo) Topics() (TopicList, error) {
 	root := fmt.Sprintf("%s/brokers/topics", kz.conf.Chroot)
 	children, _, err := kz.conn.Children(root)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]*Topic)
+	result := make(TopicList, 0, len(children))
 	for _, name := range children {
-		result[name] = kz.Topic(name)
+		result = append(result, kz.Topic(name))
 	}
 	return result, nil
 }
@@ -40,7 +44,7 @@ func (kz *Kazoo) Topic(topic string) *Topic {
 }
 
 // Partitions returns a map of all partitions for the topic.
-func (t *Topic) Partitions() (map[int32]*Partition, error) {
+func (t *Topic) Partitions() (PartitionList, error) {
 	node := fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name)
 	value, _, err := t.kz.conn.Get(node)
 	if err != nil {
@@ -56,7 +60,7 @@ func (t *Topic) Partitions() (map[int32]*Partition, error) {
 		return nil, err
 	}
 
-	result := make(map[int32]*Partition)
+	result := make(PartitionList, len(tm.Partitions))
 	for partitionNumber, replicas := range tm.Partitions {
 		partitionID, err := strconv.ParseInt(partitionNumber, 10, 32)
 		if err != nil {
@@ -67,8 +71,7 @@ func (t *Topic) Partitions() (map[int32]*Partition, error) {
 		for _, r := range replicas {
 			replicaIDs = append(replicaIDs, int32(r))
 		}
-
-		result[int32(partitionID)] = t.Partition(int32(partitionID), replicaIDs)
+		result[partitionID] = t.Partition(int32(partitionID), replicaIDs)
 	}
 
 	return result, nil
@@ -115,6 +118,22 @@ func (p *Partition) ISR() ([]int32, error) {
 	}
 }
 
+func (p *Partition) UnderReplicated() (bool, error) {
+	if state, err := p.state(); err != nil {
+		return false, err
+	} else {
+		return len(state.ISR) < len(p.Replicas), nil
+	}
+}
+
+func (p *Partition) UsesPreferredReplica() (bool, error) {
+	if state, err := p.state(); err != nil {
+		return false, err
+	} else {
+		return len(state.ISR) > 0 && state.ISR[0] == p.Replicas[0], nil
+	}
+}
+
 type partitionState struct {
 	Leader int32   `json:"leader"`
 	ISR    []int32 `json:"isr"`
@@ -133,4 +152,37 @@ func (p *Partition) state() (partitionState, error) {
 	}
 
 	return state, nil
+}
+
+func (tl TopicList) Find(name string) *Topic {
+	for _, topic := range tl {
+		if topic.Name == name {
+			return topic
+		}
+	}
+	return nil
+}
+
+func (tl TopicList) Len() int {
+	return len(tl)
+}
+
+func (tl TopicList) Less(i, j int) bool {
+	return tl[i].Name < tl[j].Name
+}
+
+func (tl TopicList) Swap(i, j int) {
+	tl[i], tl[j] = tl[j], tl[i]
+}
+
+func (pl PartitionList) Len() int {
+	return len(pl)
+}
+
+func (pl PartitionList) Less(i, j int) bool {
+	return pl[i].ID < pl[j].ID
+}
+
+func (pl PartitionList) Swap(i, j int) {
+	pl[i], pl[j] = pl[j], pl[i]
 }

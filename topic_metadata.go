@@ -154,6 +154,8 @@ func (p *Partition) state() (partitionState, error) {
 	return state, nil
 }
 
+// Find returns the topic with the given name if it exists in the topic list,
+// and will return `nil` otherwise.
 func (tl TopicList) Find(name string) *Topic {
 	for _, topic := range tl {
 		if topic.Name == name {

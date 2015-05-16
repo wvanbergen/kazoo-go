@@ -33,6 +33,8 @@ type ConsumergroupInstance struct {
 	ID string
 }
 
+type ConsumergroupInstanceList []*ConsumergroupInstance
+
 // Consumergroups returns all the registered consumergroups
 func (kz *Kazoo) Consumergroups() (map[string]*Consumergroup, error) {
 	root := fmt.Sprintf("%s/consumers", kz.conf.Chroot)
@@ -212,16 +214,16 @@ func (cgi *ConsumergroupInstance) ReleasePartition(topic string, partition int32
 }
 
 // Topics retrieves the list of topics the consumergroup has claimed ownership of at some point.
-func (cg *Consumergroup) Topics() (map[string]*Topic, error) {
+func (cg *Consumergroup) Topics() (TopicList, error) {
 	root := fmt.Sprintf("%s/consumers/%s/owners", cg.kz.conf.Chroot, cg.Name)
 	children, _, err := cg.kz.conn.Children(root)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]*Topic)
+	result := make(TopicList, 0, len(children))
 	for _, name := range children {
-		result[name] = cg.kz.Topic(name)
+		result = append(result, cg.kz.Topic(name))
 	}
 	return result, nil
 }

@@ -110,6 +110,22 @@ func (kz *Kazoo) Brokers() (map[int32]string, error) {
 	return result, nil
 }
 
+// BrokerList returns a slice of broker addresses that can be used to connect to
+// the Kafka cluster, e.g. using `sarama.NewAsyncProducer()`.
+func (kz *Kazoo) BrokerList() ([]string, error) {
+	brokers, err := kz.Brokers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]string, 0, len(brokers))
+	for _, broker := range brokers {
+		result = append(result, broker)
+	}
+
+	return result, nil
+}
+
 // Controller returns what broker is currently acting as controller of the Kafka cluster
 func (kz *Kazoo) Controller() (int32, error) {
 	type controllerEntry struct {

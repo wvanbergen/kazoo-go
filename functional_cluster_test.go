@@ -48,6 +48,32 @@ func TestBrokers(t *testing.T) {
 	assertSuccessfulClose(t, kz)
 }
 
+func TestBrokerList(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	brokers, err := kz.BrokerList()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(brokers) == 0 {
+		t.Error("Expected at least one broker")
+	}
+
+	for _, addr := range brokers {
+		if conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond); err != nil {
+			t.Errorf("Failed to connect to Kafka broker at %s", addr)
+		} else {
+			_ = conn.Close()
+		}
+	}
+
+	assertSuccessfulClose(t, kz)
+}
+
 func TestController(t *testing.T) {
 	kz, err := NewKazoo(zookeeperPeers, nil)
 	if err != nil {

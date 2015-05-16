@@ -20,8 +20,8 @@ func TestConsumergroups(t *testing.T) {
 	}
 	originalCount := len(cgs)
 
-	if _, ok := cgs[cg.Name]; ok {
-		t.Error("Consumergoup `test.kazoo.TestConsumergroups` should not be returned")
+	if cg := cgs.Find(cg.Name); cg != nil {
+		t.Error("Consumergoup `test.kazoo.TestConsumergroups` should not be found")
 	}
 
 	if exists, _ := cg.Exists(); exists {
@@ -113,10 +113,10 @@ func TestConsumergroupInstances(t *testing.T) {
 		if len(instances) != 2 {
 			t.Error("Expected 2 active consumergroup instances")
 		}
-		if _, ok := instances[instance1.ID]; !ok {
+		if i := instances.Find(instance1.ID); i == nil {
 			t.Error("Expected instance1 to be registered.")
 		}
-		if _, ok := instances[instance1.ID]; !ok {
+		if i := instances.Find(instance2.ID); i == nil {
 			t.Error("Expected instance2 to be registered.")
 		}
 	}

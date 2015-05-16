@@ -80,12 +80,10 @@ func TestConsumergroupInstances(t *testing.T) {
 		}
 	}()
 
-	instances, err := cg.Instances()
-	if err != nil {
+	if instances, err := cg.Instances(); err != nil {
 		t.Error(err)
-	}
-	if len(instances) != 0 {
-		t.Error("Expected no active consumergroup instances")
+	} else if len(instances) != 0 {
+		t.Fatal("Expected no active consumergroup instances")
 	}
 
 	// Register a new instance
@@ -109,18 +107,18 @@ func TestConsumergroupInstances(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	instances, err = cg.Instances()
-	if err != nil {
+	if instances, err := cg.Instances(); err != nil {
 		t.Error(err)
-	}
-	if len(instances) != 2 {
-		t.Error("Expected 2 active consumergroup instances")
-	}
-	if _, ok := instances[instance1.ID]; !ok {
-		t.Error("Expected instance1 to be registered.")
-	}
-	if _, ok := instances[instance1.ID]; !ok {
-		t.Error("Expected instance2 to be registered.")
+	} else {
+		if len(instances) != 2 {
+			t.Error("Expected 2 active consumergroup instances")
+		}
+		if _, ok := instances[instance1.ID]; !ok {
+			t.Error("Expected instance1 to be registered.")
+		}
+		if _, ok := instances[instance1.ID]; !ok {
+			t.Error("Expected instance2 to be registered.")
+		}
 	}
 
 	// Deregister the two running instances
@@ -137,11 +135,9 @@ func TestConsumergroupInstances(t *testing.T) {
 		t.Error("Expected new instance to not be registered")
 	}
 
-	instances, err = cg.Instances()
-	if err != nil {
+	if instances, err := cg.Instances(); err != nil {
 		t.Error(err)
-	}
-	if len(instances) != 0 {
+	} else if len(instances) != 0 {
 		t.Error("Expected no active consumergroup instances")
 	}
 }

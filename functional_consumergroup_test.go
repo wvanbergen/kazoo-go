@@ -192,6 +192,66 @@ func TestConsumergroupInstanceCrash(t *testing.T) {
 	}
 }
 
+func TestConsumergroupWatchInstances(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupWatchInstances")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	instances, c, err := cg.WatchInstances()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(instances) != 0 {
+		t.Error("Expected 0 running instances")
+	}
+
+	instance := cg.NewInstance()
+	if err := instance.Register([]string{"topic"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The instance watch should have been triggered
+	<-c
+
+	instances, c, err = cg.WatchInstances()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(instances) != 1 {
+		t.Error("Expected 1 running instance")
+	}
+
+	if err := instance.Deregister(); err != nil {
+		t.Fatal(err)
+	}
+
+	// The instance watch should have been triggered again
+	<-c
+
+	instances, err = cg.Instances()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(instances) != 0 {
+		t.Error("Expected 0 running instances")
+	}
+}
+
 func TestConsumergroupOffsets(t *testing.T) {
 	kz, err := NewKazoo(zookeeperPeers, nil)
 	if err != nil {

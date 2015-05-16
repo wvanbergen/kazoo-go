@@ -252,6 +252,99 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 }
 
+func TestConsumergroupInstanceClaimPartition(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupInstanceClaimPartition")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	// Create two instances for this consumergroup
+
+	i1 := cg.NewInstance()
+	if err := i1.Register([]string{"test.4"}); err != nil {
+		t.Fatal(err)
+	}
+	i2 := cg.NewInstance()
+	if err := i2.Register([]string{"test.4"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Claim all partitions divided by instance 1 and 2
+
+	if err := i1.ClaimPartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+	if err := i1.ClaimPartition("test.4", 1); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ClaimPartition("test.4", 2); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ClaimPartition("test.4", 3); err != nil {
+		t.Error(err)
+	}
+
+	// Try to claim more partitions
+	if err := i1.ClaimPartition("test.4", 3); err != ErrPartitionClaimedByOther {
+		t.Error("Expected ErrPartitionClaimedByOther to be returned, found", err)
+	}
+
+	if err := i2.ClaimPartition("test.4", 0); err != ErrPartitionClaimedByOther {
+		t.Error("Expected ErrPartitionClaimedByOther to be returned, found", err)
+	}
+
+	// Instance 1: release some partitions
+
+	if err := i1.ReleasePartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+	if err := i1.ReleasePartition("test.4", 1); err != nil {
+		t.Error(err)
+	}
+
+	// Instance 2: claim the released partitions
+
+	if err := i2.ClaimPartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ClaimPartition("test.4", 1); err != nil {
+		t.Error(err)
+	}
+
+	// Instance 2: release all partitions
+
+	if err := i2.ReleasePartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ReleasePartition("test.4", 1); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ReleasePartition("test.4", 2); err != nil {
+		t.Error(err)
+	}
+	if err := i2.ReleasePartition("test.4", 3); err != nil {
+		t.Error(err)
+	}
+
+	if err := i1.Deregister(); err != nil {
+		t.Error(err)
+	}
+	if err := i2.Deregister(); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestConsumergroupOffsets(t *testing.T) {
 	kz, err := NewKazoo(zookeeperPeers, nil)
 	if err != nil {

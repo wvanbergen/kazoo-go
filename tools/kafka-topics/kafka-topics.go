@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wvanbergen/kazoo"
+	"github.com/wvanbergen/kazoo-go"
 )
 
 var (

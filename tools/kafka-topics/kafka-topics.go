@@ -29,13 +29,13 @@ func main() {
 
 	kz, err := kazoo.NewKazooFromConnectionString(*zookeeper, conf)
 	if err != nil {
-		printErrorAndExit(69, "Failed to connect to Zookeeper")
+		printErrorAndExit(69, "Failed to connect to Zookeeper: %v", err)
 	}
 	defer func() { _ = kz.Close() }()
 
 	topics, err := kz.Topics()
 	if err != nil {
-		printErrorAndExit(69, "Failed to get Kafka topics from Zookeeper")
+		printErrorAndExit(69, "Failed to get Kafka topics from Zookeeper: %v", err)
 	}
 	sort.Sort(topics)
 
@@ -54,7 +54,7 @@ func main() {
 
 			partitions, err := topic.Partitions()
 			if err != nil {
-				printErrorAndExit(69, "Failed to get Kafka topic partitions from Zookeeper")
+				printErrorAndExit(69, "Failed to get Kafka topic partitions from Zookeeper: %v", err)
 			}
 
 			fmt.Fprintf(buffer, "Topic: %s\tPartitions: %d\n", topic.Name, len(partitions))

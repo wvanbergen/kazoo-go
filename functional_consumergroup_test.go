@@ -3,6 +3,10 @@ package kazoo
 import (
 	"testing"
 	"time"
+
+//	"github.com/samuel/go-zookeeper/zk"
+	"reflect"
+	"github.com/samuel/go-zookeeper/zk"
 )
 
 func TestConsumergroups(t *testing.T) {
@@ -86,13 +90,27 @@ func TestConsumergroupInstances(t *testing.T) {
 		t.Fatal("Expected no active consumergroup instances")
 	}
 
-	// Register a new instance
 	instance1 := cg.NewInstance()
+	// Make sure that the instance is unregistered.
+	if reg, err := instance1.Registration(); err != zk.ErrNoNode || reg != nil {
+		t.Errorf("Expected no registration: reg=%v, err=(%v)", reg, err)
+	}
+
+	// Register a new instance
 	if instance1.ID == "" {
 		t.Error("It should generate a valid instance ID")
 	}
 	if err := instance1.Register([]string{"topic"}); err != nil {
 		t.Error(err)
+	}
+
+	// Verify registration
+	reg, err := instance1.Registration()
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(reg.Subscription, map[string]int{"topic":1}) {
+		t.Errorf("Unexpected registration: %v", reg)
 	}
 
 	// Try to register an instance with the same ID.
@@ -341,6 +359,50 @@ func TestConsumergroupInstanceClaimPartition(t *testing.T) {
 		t.Error(err)
 	}
 	if err := i2.Deregister(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestConsumergroupInstanceClaimPartitionSame(t *testing.T) {
+	// Given
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupInstanceClaimPartition2")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	instance := cg.NewInstance()
+	if err := instance.Register([]string{"test.4"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := instance.ClaimPartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+
+	// When: claim the same partition again
+	err = instance.ClaimPartition("test.4", 0);
+
+	// Then
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Cleanup
+	if err := instance.ReleasePartition("test.4", 0); err != nil {
+		t.Error(err)
+	}
+	if err := instance.Deregister(); err != nil {
 		t.Error(err)
 	}
 }

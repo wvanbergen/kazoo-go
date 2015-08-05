@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-//	"github.com/samuel/go-zookeeper/zk"
-	"reflect"
+	//	"github.com/samuel/go-zookeeper/zk"
 	"github.com/samuel/go-zookeeper/zk"
+	"reflect"
 )
 
 func TestConsumergroups(t *testing.T) {
@@ -109,7 +109,7 @@ func TestConsumergroupInstances(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(reg.Subscription, map[string]int{"topic":1}) {
+	if !reflect.DeepEqual(reg.Subscription, map[string]int{"topic": 1}) {
 		t.Errorf("Unexpected registration: %v", reg)
 	}
 
@@ -391,7 +391,7 @@ func TestConsumergroupInstanceClaimPartitionSame(t *testing.T) {
 	}
 
 	// When: claim the same partition again
-	err = instance.ClaimPartition("test.4", 0);
+	err = instance.ClaimPartition("test.4", 0)
 
 	// Then
 	if err != nil {

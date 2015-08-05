@@ -36,6 +36,27 @@ type ConsumergroupInstance struct {
 type ConsumergroupList []*Consumergroup
 type ConsumergroupInstanceList []*ConsumergroupInstance
 
+type Registration struct {
+	Pattern      RegPattern     `json:"pattern"`
+	Subscription map[string]int `json:"subscription"`
+	Timestamp    int64          `json:"timestamp"`
+	Version      RegVersion     `json:"version"`
+}
+
+type RegPattern string
+
+const (
+	RegPatternStatic    RegPattern = "static"
+	RegPatternWhiteList RegPattern = "white_list"
+	RegPatternBlackList RegPattern = "black_list"
+)
+
+type RegVersion int
+
+const (
+	RegDefaultVersion RegVersion = 1
+)
+
 // Consumergroups returns all the registered consumergroups
 func (kz *Kazoo) Consumergroups() (ConsumergroupList, error) {
 	root := fmt.Sprintf("%s/consumers", kz.conf.Chroot)
@@ -169,6 +190,21 @@ func (cgi *ConsumergroupInstance) Registered() (bool, error) {
 	return cgi.cg.kz.exists(node)
 }
 
+// Registered returns current registration of the consumer group instance.
+func (cgi *ConsumergroupInstance) Registration() (*Registration, error) {
+	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	val, _, err := cgi.cg.kz.conn.Get(node)
+	if err != nil {
+		return nil, err
+	}
+
+	reg := &Registration{}
+	if err := json.Unmarshal(val, reg); err != nil {
+		return nil, err
+	}
+	return reg, nil
+}
+
 // Register registers the consumergroup instance in Zookeeper.
 func (cgi *ConsumergroupInstance) Register(topics []string) error {
 	if exists, err := cgi.Registered(); err != nil {
@@ -177,19 +213,15 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 		return ErrInstanceAlreadyRegistered
 	}
 
-	// Create a JSON record that is compatible with the JVM consumer.
-	// I am not quite sure what this information is used for.
-
 	subscription := make(map[string]int)
 	for _, topic := range topics {
 		subscription[topic] = 1
 	}
-
-	data, err := json.Marshal(map[string]interface{}{
-		"pattern":      "white_list",
-		"subscription": subscription,
-		"timestamp":    fmt.Sprintf("%d", time.Now().Unix()),
-		"version":      1,
+	data, err := json.Marshal(&Registration{
+		Pattern:      RegPatternStatic,
+		Subscription: subscription,
+		Timestamp:    time.Now().Unix(),
+		Version:      RegDefaultVersion,
 	})
 	if err != nil {
 		return err
@@ -202,14 +234,15 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 
 // Deregister removes the registration of the instance from zookeeper.
 func (cgi *ConsumergroupInstance) Deregister() error {
-	if exists, err := cgi.Registered(); err != nil {
+	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	exists, stat, err := cgi.cg.kz.conn.Exists(node)
+	if err != nil {
 		return err
 	} else if !exists {
 		return ErrInstanceNotRegistered
 	}
 
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
-	return cgi.cg.kz.conn.Delete(node, 0)
+	return cgi.cg.kz.conn.Delete(node, stat.Version)
 }
 
 // Claim claims a topic/partition ownership for a consumer ID within a group. If the
@@ -225,8 +258,15 @@ func (cgi *ConsumergroupInstance) ClaimPartition(topic string, partition int32) 
 	err := cgi.cg.kz.create(node, []byte(cgi.ID), true)
 	switch err {
 	case zk.ErrNodeExists:
-		// Return a separate error for this, to allow for implementing a retry mechanism.
-		return ErrPartitionClaimedByOther
+		data, _, err := cgi.cg.kz.conn.Get(node)
+		if err != nil {
+			return err
+		}
+		if string(data) != cgi.ID {
+			// Return a separate error for this, to allow for implementing a retry mechanism.
+			return ErrPartitionClaimedByOther
+		}
+		return nil
 	default:
 		return err
 	}

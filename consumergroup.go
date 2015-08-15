@@ -184,6 +184,28 @@ func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*Consume
 	}
 }
 
+func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan struct{}, error) {
+	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	instanceID, _, changed, err := cg.kz.conn.GetW(node)
+
+	switch err {
+	case nil:
+		channel := make(chan struct{})
+		go func() {
+			<-changed
+			close(channel)
+		}()
+
+		return &ConsumergroupInstance{cg: cg, ID: string(instanceID)}, channel, nil
+
+	case zk.ErrNoNode:
+		return nil, nil, nil
+
+	default:
+		return nil, nil, err
+	}
+}
+
 // Registered checks whether the consumergroup instance is registered in Zookeeper.
 func (cgi *ConsumergroupInstance) Registered() (bool, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)

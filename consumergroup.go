@@ -122,7 +122,7 @@ func (cg *Consumergroup) Instances() (ConsumergroupInstanceList, error) {
 
 // WatchInstances returns a ConsumergroupInstanceList, and a channel that will be closed
 // as soon the instance list changes.
-func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan struct{}, error) {
+func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.Event, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
 	if exists, err := cg.kz.exists(node); err != nil {
 		return nil, nil, err
@@ -142,13 +142,7 @@ func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan str
 		result = append(result, cg.Instance(cgi))
 	}
 
-	channel := make(chan struct{})
-	go func() {
-		<-c
-		close(channel)
-	}()
-
-	return result, channel, nil
+	return result, c, nil
 }
 
 // NewInstance instantiates a new ConsumergroupInstance inside this consumer group,
@@ -184,19 +178,13 @@ func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*Consume
 	}
 }
 
-func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan struct{}, error) {
+func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan zk.Event, error) {
 	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	instanceID, _, changed, err := cg.kz.conn.GetW(node)
 
 	switch err {
 	case nil:
-		channel := make(chan struct{})
-		go func() {
-			<-changed
-			close(channel)
-		}()
-
-		return &ConsumergroupInstance{cg: cg, ID: string(instanceID)}, channel, nil
+		return &ConsumergroupInstance{cg: cg, ID: string(instanceID)}, changed, nil
 
 	case zk.ErrNoNode:
 		return nil, nil, nil

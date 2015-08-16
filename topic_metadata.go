@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"github.com/samuel/go-zookeeper/zk"
 )
 
 // Topic interacts with Kafka's topic metadata in Zookeeper.
@@ -55,6 +57,22 @@ func (t *Topic) Partitions() (PartitionList, error) {
 		return nil, err
 	}
 
+	return t.parsePartitions(value)
+}
+
+// WatchPartitions returns a list of all partitions for the topic, and watches the topic for changes.
+func (t *Topic) WatchPartitions() (PartitionList, <-chan zk.Event, error) {
+	node := fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name)
+	value, _, c, err := t.kz.conn.GetW(node)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	list, err := t.parsePartitions(value)
+	return list, c, err
+}
+
+func (t *Topic) parsePartitions(value []byte) (PartitionList, error) {
 	type topicMetadata struct {
 		Partitions map[string][]int32 `json:"partitions"`
 	}

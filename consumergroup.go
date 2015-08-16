@@ -33,7 +33,10 @@ type ConsumergroupInstance struct {
 	ID string
 }
 
+// ConsumergroupList implements the sortable interface on top of a consumer group list
 type ConsumergroupList []*Consumergroup
+
+// ConsumergroupInstanceList implements the sortable interface on top of a consumer instance list
 type ConsumergroupInstanceList []*ConsumergroupInstance
 
 type Registration struct {
@@ -178,6 +181,10 @@ func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*Consume
 	}
 }
 
+// WatchPartitionOwner retrieves what instance is currently owning the partition, and sets a
+// Zookeeper watch to be notified of changes. If the partition currently does not have an owner,
+// the function returns nil for every return value. In this case is should be safe to claim
+// the partition for an instance.
 func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan zk.Event, error) {
 	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	instanceID, _, changed, err := cg.kz.conn.GetW(node)

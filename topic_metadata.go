@@ -14,6 +14,7 @@ type Topic struct {
 	kz   *Kazoo
 }
 
+// TopicList is a type that implements the sortable interface for a list of Topic instances.
 type TopicList []*Topic
 
 // Partition interacts with Kafka's partition metadata in Zookeeper.
@@ -23,6 +24,7 @@ type Partition struct {
 	Replicas []int32
 }
 
+// PartitionList is a type that implements the sortable interface for a list of Partition instances
 type PartitionList []*Partition
 
 // Topics returns a list of all registered Kafka topics.
@@ -61,6 +63,7 @@ func (kz *Kazoo) Topic(topic string) *Topic {
 	return &Topic{Name: topic, kz: kz}
 }
 
+// Exists returns true if the topic exists on the Kafka cluster.
 func (t *Topic) Exists() (bool, error) {
 	return t.kz.exists(fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name))
 }
@@ -88,6 +91,8 @@ func (t *Topic) WatchPartitions() (PartitionList, <-chan zk.Event, error) {
 	return list, c, err
 }
 
+// parsePartitions pases the JSON representation of the partitions
+// that is stored as data on the topic node in Zookeeper.
 func (t *Topic) parsePartitions(value []byte) (PartitionList, error) {
 	type topicMetadata struct {
 		Partitions map[string][]int32 `json:"partitions"`
@@ -138,14 +143,17 @@ func (t *Topic) Config() (map[string]string, error) {
 	return topicConfig.ConfigMap, nil
 }
 
+// Topic returns the Topic of this partition.
 func (p *Partition) Topic() *Topic {
 	return p.topic
 }
 
+// Key returns a unique identifier for the partition, using the form "topic/partition".
 func (p *Partition) Key() string {
 	return fmt.Sprintf("%s/%d", p.topic.Name, p.ID)
 }
 
+// PreferredReplica returns the preferred replica for this partition.
 func (p *Partition) PreferredReplica() int32 {
 	if len(p.Replicas) > 0 {
 		return p.Replicas[0]
@@ -188,11 +196,14 @@ func (p *Partition) UsesPreferredReplica() (bool, error) {
 	}
 }
 
+// partitionState represents the partition state as it is stored as JSON
+// in Zookeeper on the partition's state node.
 type partitionState struct {
 	Leader int32   `json:"leader"`
 	ISR    []int32 `json:"isr"`
 }
 
+// state retrieves and parses the partition State
 func (p *Partition) state() (partitionState, error) {
 	var state partitionState
 	node := fmt.Sprintf("%s/brokers/topics/%s/partitions/%d/state", p.topic.kz.conf.Chroot, p.topic.Name, p.ID)

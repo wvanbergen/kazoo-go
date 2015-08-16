@@ -159,6 +159,7 @@ func (kz *Kazoo) Controller() (int32, error) {
 	return controllerNode.BrokerID, nil
 }
 
+// Close closes the connection with the Zookeeper cluster
 func (kz *Kazoo) Close() error {
 	kz.conn.Close()
 	return nil

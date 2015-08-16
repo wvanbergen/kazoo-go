@@ -325,7 +325,7 @@ func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, erro
 	node := fmt.Sprintf("%s/consumers/%s/offsets/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	val, _, err := cg.kz.conn.Get(node)
 	if err == zk.ErrNoNode {
-		return 0, nil
+		return -1, nil
 	} else if err != nil {
 		return -1, err
 	}

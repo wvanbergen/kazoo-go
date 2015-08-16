@@ -429,8 +429,8 @@ func TestConsumergroupOffsets(t *testing.T) {
 		t.Error(err)
 	}
 
-	if offset != 0 {
-		t.Error("Expected to get offset 0 for a partition that hasn't seen an offset commit yet")
+	if offset >= 0 {
+		t.Error("Expected to get a negative offset for a partition that hasn't seen an offset commit yet")
 	}
 
 	if err := cg.CommitOffset("test", 0, 1234); err != nil {

@@ -215,18 +215,26 @@ func (cgi *ConsumergroupInstance) Registration() (*Registration, error) {
 	return reg, nil
 }
 
-// Register registers the consumergroup instance in Zookeeper.
-func (cgi *ConsumergroupInstance) Register(topics []string) error {
+// RegisterSubscription registers the consumer instance in Zookeeper, with its subscription.
+func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []byte) error {
 	if exists, err := cgi.Registered(); err != nil {
 		return err
 	} else if exists {
 		return ErrInstanceAlreadyRegistered
 	}
 
+	// Create an ephemeral node for the the consumergroup instance.
+	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	return cgi.cg.kz.create(node, subscriptionJSON, true)
+}
+
+// Register registers the consumergroup instance in Zookeeper.
+func (cgi *ConsumergroupInstance) Register(topics []string) error {
 	subscription := make(map[string]int)
 	for _, topic := range topics {
 		subscription[topic] = 1
 	}
+
 	data, err := json.Marshal(&Registration{
 		Pattern:      RegPatternStatic,
 		Subscription: subscription,
@@ -237,9 +245,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 		return err
 	}
 
-	// Create an ephemeral node for the the consumergroup instance.
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
-	return cgi.cg.kz.create(node, data, true)
+	return cgi.RegisterWithSubscription(data)
 }
 
 // Deregister removes the registration of the instance from zookeeper.

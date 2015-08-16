@@ -25,7 +25,7 @@ type Partition struct {
 
 type PartitionList []*Partition
 
-// Topics returns a map of all registered Kafka topics.
+// Topics returns a list of all registered Kafka topics.
 func (kz *Kazoo) Topics() (TopicList, error) {
 	root := fmt.Sprintf("%s/brokers/topics", kz.conf.Chroot)
 	children, _, err := kz.conn.Children(root)
@@ -38,6 +38,22 @@ func (kz *Kazoo) Topics() (TopicList, error) {
 		result = append(result, kz.Topic(name))
 	}
 	return result, nil
+}
+
+// WatchTopics returns a list of all registered Kafka topics, and
+// watches that list for changes.
+func (kz *Kazoo) WatchTopics() (TopicList, <-chan zk.Event, error) {
+	root := fmt.Sprintf("%s/brokers/topics", kz.conf.Chroot)
+	children, _, c, err := kz.conn.ChildrenW(root)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := make(TopicList, 0, len(children))
+	for _, name := range children {
+		result = append(result, kz.Topic(name))
+	}
+	return result, c, nil
 }
 
 // Topic returns a Topic instance for a given topic name

@@ -147,7 +147,11 @@ func (p *Partition) Key() string {
 }
 
 func (p *Partition) PreferredReplica() int32 {
-	return p.Replicas[0]
+	if len(p.Replicas) > 0 {
+		return p.Replicas[0]
+	} else {
+		return -1
+	}
 }
 
 // Leader returns the broker ID of the broker that is currently the leader for the partition.

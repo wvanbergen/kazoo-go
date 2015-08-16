@@ -33,7 +33,10 @@ type ConsumergroupInstance struct {
 	ID string
 }
 
+// ConsumergroupList implements the sortable interface on top of a consumer group list
 type ConsumergroupList []*Consumergroup
+
+// ConsumergroupInstanceList implements the sortable interface on top of a consumer instance list
 type ConsumergroupInstanceList []*ConsumergroupInstance
 
 type Registration struct {
@@ -122,7 +125,7 @@ func (cg *Consumergroup) Instances() (ConsumergroupInstanceList, error) {
 
 // WatchInstances returns a ConsumergroupInstanceList, and a channel that will be closed
 // as soon the instance list changes.
-func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan struct{}, error) {
+func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.Event, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
 	if exists, err := cg.kz.exists(node); err != nil {
 		return nil, nil, err
@@ -142,13 +145,7 @@ func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan str
 		result = append(result, cg.Instance(cgi))
 	}
 
-	channel := make(chan struct{})
-	go func() {
-		<-c
-		close(channel)
-	}()
-
-	return result, channel, nil
+	return result, c, nil
 }
 
 // NewInstance instantiates a new ConsumergroupInstance inside this consumer group,
@@ -184,6 +181,26 @@ func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*Consume
 	}
 }
 
+// WatchPartitionOwner retrieves what instance is currently owning the partition, and sets a
+// Zookeeper watch to be notified of changes. If the partition currently does not have an owner,
+// the function returns nil for every return value. In this case is should be safe to claim
+// the partition for an instance.
+func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan zk.Event, error) {
+	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	instanceID, _, changed, err := cg.kz.conn.GetW(node)
+
+	switch err {
+	case nil:
+		return &ConsumergroupInstance{cg: cg, ID: string(instanceID)}, changed, nil
+
+	case zk.ErrNoNode:
+		return nil, nil, nil
+
+	default:
+		return nil, nil, err
+	}
+}
+
 // Registered checks whether the consumergroup instance is registered in Zookeeper.
 func (cgi *ConsumergroupInstance) Registered() (bool, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
@@ -205,18 +222,26 @@ func (cgi *ConsumergroupInstance) Registration() (*Registration, error) {
 	return reg, nil
 }
 
-// Register registers the consumergroup instance in Zookeeper.
-func (cgi *ConsumergroupInstance) Register(topics []string) error {
+// RegisterSubscription registers the consumer instance in Zookeeper, with its subscription.
+func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []byte) error {
 	if exists, err := cgi.Registered(); err != nil {
 		return err
 	} else if exists {
 		return ErrInstanceAlreadyRegistered
 	}
 
+	// Create an ephemeral node for the the consumergroup instance.
+	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	return cgi.cg.kz.create(node, subscriptionJSON, true)
+}
+
+// Register registers the consumergroup instance in Zookeeper.
+func (cgi *ConsumergroupInstance) Register(topics []string) error {
 	subscription := make(map[string]int)
 	for _, topic := range topics {
 		subscription[topic] = 1
 	}
+
 	data, err := json.Marshal(&Registration{
 		Pattern:      RegPatternStatic,
 		Subscription: subscription,
@@ -227,9 +252,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 		return err
 	}
 
-	// Create an ephemeral node for the the consumergroup instance.
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
-	return cgi.cg.kz.create(node, data, true)
+	return cgi.RegisterWithSubscription(data)
 }
 
 // Deregister removes the registration of the instance from zookeeper.

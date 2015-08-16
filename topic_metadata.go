@@ -43,7 +43,11 @@ func (kz *Kazoo) Topic(topic string) *Topic {
 	return &Topic{Name: topic, kz: kz}
 }
 
-// Partitions returns a map of all partitions for the topic.
+func (t *Topic) Exists() (bool, error) {
+	return t.kz.exists(fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name))
+}
+
+// Partitions returns a list of all partitions for the topic.
 func (t *Topic) Partitions() (PartitionList, error) {
 	node := fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name)
 	value, _, err := t.kz.conn.Get(node)
@@ -98,6 +102,18 @@ func (t *Topic) Config() (map[string]string, error) {
 	}
 
 	return topicConfig.ConfigMap, nil
+}
+
+func (p *Partition) Topic() *Topic {
+	return p.topic
+}
+
+func (p *Partition) Key() string {
+	return fmt.Sprintf("%s/%d", p.topic.Name, p.ID)
+}
+
+func (p *Partition) PreferredReplica() int32 {
+	return p.Replicas[0]
 }
 
 // Leader returns the broker ID of the broker that is currently the leader for the partition.

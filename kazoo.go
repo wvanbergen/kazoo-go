@@ -27,6 +27,19 @@ func ParseConnectionString(zookeeper string) (nodes []string, chroot string) {
 	return
 }
 
+// BuildConnectionString builds a Zookeeper connection string for a list of nodes.
+// Returns a string like "zk1:2181,zk2:2181,zk3:2181"
+func BuildConnectionString(nodes []string) string {
+	return strings.Join(nodes, ",")
+}
+
+// ConnectionStringWithChroot builds a Zookeeper connection string for a list
+// of nodes and a chroot. The chroot should start with "/".
+// Returns a string like "zk1:2181,zk2:2181,zk3:2181/chroot"
+func BuildConnectionStringWithChroot(nodes []string, chroot string) string {
+	return fmt.Sprintf("%s%s", strings.Join(nodes, ","), chroot)
+}
+
 // Kazoo interacts with the Kafka metadata in Zookeeper
 type Kazoo struct {
 	conn *zk.Conn

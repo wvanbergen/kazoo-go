@@ -236,7 +236,7 @@ func (pl PartitionList) Len() int {
 }
 
 func (pl PartitionList) Less(i, j int) bool {
-	return pl[i].ID < pl[j].ID
+	return pl[i].topic.Name < pl[j].topic.Name || (pl[i].topic.Name == pl[j].topic.Name && pl[i].ID < pl[j].ID)
 }
 
 func (pl PartitionList) Swap(i, j int) {

@@ -519,3 +519,67 @@ func TestConsumergroupOffsets(t *testing.T) {
 		t.Error("Expected to get the offset that was committed.")
 	}
 }
+
+func TestConsumergroupResetOffsets(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupResetOffsets")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	offsets, err := cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(offsets) > 0 {
+		t.Errorf("A new consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
+	}
+
+	if err := cg.CommitOffset("test1", 0, 1234); err != nil {
+		t.Error(err)
+	}
+
+	if err := cg.CommitOffset("test1", 1, 2345); err != nil {
+		t.Error(err)
+	}
+
+	if err := cg.CommitOffset("test2", 0, 3456); err != nil {
+		t.Error(err)
+	}
+
+	offsets, err = cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if offsets["test1"][0] == 1234 && offsets["test1"][1] == 2345 && offsets["test2"][0] == 3456 {
+		t.Log("All offsets present in offset map")
+	} else {
+		t.Logf("Offset map not as expected: %v", offsets)
+	}
+
+	if err := cg.ResetOffsets(); err != nil {
+		t.Fatal(err)
+	}
+
+	offsets, err = cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(offsets) > 0 {
+		t.Errorf("After a reset, consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
+	}
+
+}

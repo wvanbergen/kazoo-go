@@ -355,6 +355,81 @@ func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, erro
 	return strconv.ParseInt(string(val), 10, 64)
 }
 
+// FetchOffset retrieves all the commmitted offsets for a group
+func (cg *Consumergroup) FetchAllOffsets() (map[string]map[int32]int64, error) {
+	result := make(map[string]map[int32]int64)
+
+	offsetsNode := fmt.Sprintf("%s/consumers/%s/offsets", cg.kz.conf.Chroot, cg.Name)
+	topics, _, err := cg.kz.conn.Children(offsetsNode)
+	if err == zk.ErrNoNode {
+		return result, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	for _, topic := range topics {
+		result[topic] = make(map[int32]int64)
+		topicNode := fmt.Sprintf("%s/consumers/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
+		partitions, _, err := cg.kz.conn.Children(topicNode)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, partition := range partitions {
+			partitionNode := fmt.Sprintf("%s/consumers/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
+			val, _, err := cg.kz.conn.Get(partitionNode)
+			if err != nil {
+				return nil, err
+			}
+
+			partition, err := strconv.ParseInt(partition, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+
+			offset, err := strconv.ParseInt(string(val), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			result[topic][int32(partition)] = offset
+		}
+	}
+
+	return result, nil
+}
+
+func (cg *Consumergroup) ResetOffsets() error {
+	offsetsNode := fmt.Sprintf("%s/consumers/%s/offsets", cg.kz.conf.Chroot, cg.Name)
+	topics, _, err := cg.kz.conn.Children(offsetsNode)
+	if err == zk.ErrNoNode {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	for _, topic := range topics {
+		topicNode := fmt.Sprintf("%s/consumers/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
+		partitions, stat, err := cg.kz.conn.Children(topicNode)
+		if err != nil {
+			return err
+		}
+
+		for _, partition := range partitions {
+			partitionNode := fmt.Sprintf("%s/consumers/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
+			if err := cg.kz.conn.Delete(partitionNode, 0); err != nil {
+				return err
+			}
+		}
+
+		if err := cg.kz.conn.Delete(topicNode, stat.Version); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // generateUUID Generates a UUIDv4.
 func generateUUID() (string, error) {
 	uuid := make([]byte, 16)

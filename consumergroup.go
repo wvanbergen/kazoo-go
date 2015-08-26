@@ -165,7 +165,7 @@ func (cg *Consumergroup) Instance(id string) *ConsumergroupInstance {
 }
 
 // PartitionOwner returns the ConsumergroupInstance that has claimed the given partition.
-// This can be nil if nobody has claime dit yet.
+// This can be nil if nobody has claimed it yet.
 func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*ConsumergroupInstance, error) {
 	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	val, _, err := cg.kz.conn.Get(node)

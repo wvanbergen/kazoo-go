@@ -417,8 +417,11 @@ func (cg *Consumergroup) ResetOffsets() error {
 
 		for _, partition := range partitions {
 			partitionNode := fmt.Sprintf("%s/consumers/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
-			if err := cg.kz.conn.Delete(partitionNode, 0); err != nil {
-				return err
+			exists, stat, err := cg.kz.conn.Exists(partitionNode)
+			if exists {
+				if err = cg.kz.conn.Delete(partitionNode, stat.Version); err != nil {
+					return err
+				}
 			}
 		}
 

@@ -42,7 +42,7 @@ type ConsumergroupInstanceList []*ConsumergroupInstance
 type Registration struct {
 	Pattern      RegPattern     `json:"pattern"`
 	Subscription map[string]int `json:"subscription"`
-	Timestamp    int64          `json:"timestamp"`
+	Timestamp    string         `json:"timestamp"`
 	Version      RegVersion     `json:"version"`
 }
 
@@ -245,7 +245,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 	data, err := json.Marshal(&Registration{
 		Pattern:      RegPatternStatic,
 		Subscription: subscription,
-		Timestamp:    time.Now().Unix(),
+		Timestamp:    strconv.Itoa(int(time.Now().Unix())),
 		Version:      RegDefaultVersion,
 	})
 	if err != nil {

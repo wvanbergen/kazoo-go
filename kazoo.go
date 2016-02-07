@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -139,6 +140,24 @@ func (kz *Kazoo) BrokerList() ([]string, error) {
 	return result, nil
 }
 
+// BrokerIDList returns a sorted slice of broker ids that can be used for manipulating topics and partitions.`.
+func (kz *Kazoo) BrokerIDList() ([]int32, error) {
+	brokers, err := kz.Brokers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]int32, 0, len(brokers))
+	for id := range brokers {
+		result = append(result, id)
+	}
+
+	// return sorted list to match the offical kafka sdks
+	sort.Sort(Int32Slice(result))
+
+	return result, nil
+}
+
 // Controller returns what broker is currently acting as controller of the Kafka cluster
 func (kz *Kazoo) Controller() (int32, error) {
 	type controllerEntry struct {
@@ -222,3 +241,22 @@ func (kz *Kazoo) create(node string, value []byte, ephemeral bool) (err error) {
 	_, err = kz.conn.Create(node, value, flags, zk.WorldACL(zk.PermAll))
 	return
 }
+
+// createOrUpdate first attempts to update a node. If the nodes does not exist it will create it.
+func (kz *Kazoo) createOrUpdate(node string, value []byte, ephemeral bool) (err error) {
+	if _, err = kz.conn.Set(node, value, -1); err == nil {
+		return
+	}
+
+	if err == zk.ErrNoNode {
+		err = kz.create(node, value, ephemeral)
+	}
+	return
+}
+
+// sort interface for int32 slice
+type Int32Slice []int32
+
+func (s Int32Slice) Len() int           { return len(s) }
+func (s Int32Slice) Less(i, j int) bool { return s[i] < s[j] }
+func (s Int32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

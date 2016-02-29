@@ -232,7 +232,7 @@ func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []by
 
 	// Create an ephemeral node for the the consumergroup instance.
 	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
-	return cgi.cg.kz.create(node, subscriptionJSON, true)
+	return cgi.cg.kz.create(node, subscriptionJSON, true, false)
 }
 
 // Register registers the consumergroup instance in Zookeeper.
@@ -278,7 +278,7 @@ func (cgi *ConsumergroupInstance) ClaimPartition(topic string, partition int32) 
 
 	// Create an ephemeral node for the partition to claim the partition for this instance
 	node := fmt.Sprintf("%s/%d", root, partition)
-	err := cgi.cg.kz.create(node, []byte(cgi.ID), true)
+	err := cgi.cg.kz.create(node, []byte(cgi.ID), true, false)
 	switch err {
 	case zk.ErrNodeExists:
 		data, _, err := cgi.cg.kz.conn.Get(node)
@@ -332,7 +332,7 @@ func (cg *Consumergroup) CommitOffset(topic string, partition int32, offset int6
 	_, stat, err := cg.kz.conn.Get(node)
 	switch err {
 	case zk.ErrNoNode: // Create a new node
-		return cg.kz.create(node, data, false)
+		return cg.kz.create(node, data, false, false)
 
 	case nil: // Update the existing node
 		_, err := cg.kz.conn.Set(node, data, stat.Version)

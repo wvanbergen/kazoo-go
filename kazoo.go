@@ -48,7 +48,7 @@ type Kazoo struct {
 
 // Config holds configuration values f.
 type Config struct {
-	// The chroot the Kafka installation is registerde under. Defaults to "".
+	// The chroot the Kafka installation is registered under. Defaults to "".
 	Chroot string
 
 	// The amount of time the Zookeeper client can be disconnected from the Zookeeper cluster
@@ -87,7 +87,7 @@ func NewKazooFromConnectionString(connectionString string, conf *Config) (*Kazoo
 }
 
 // Brokers returns a map of all the brokers that make part of the
-// Kafka cluster that is regeistered in Zookeeper.
+// Kafka cluster that is registered in Zookeeper.
 func (kz *Kazoo) Brokers() (map[int32]string, error) {
 	root := fmt.Sprintf("%s/brokers/ids", kz.conf.Chroot)
 	children, _, err := kz.conn.Children(root)

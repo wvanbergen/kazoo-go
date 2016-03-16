@@ -7,7 +7,9 @@ import (
 )
 
 func TestGenerateConsumerInstanceID(t *testing.T) {
-	id, err := generateConsumerInstanceID()
-	assert.Equal(t, nil, err)
-	t.Logf("%+v", id)
+	for i := 0; i < 5; i++ {
+		id, err := generateConsumerInstanceID()
+		assert.Equal(t, nil, err)
+		t.Logf("%+v", id)
+	}
 }

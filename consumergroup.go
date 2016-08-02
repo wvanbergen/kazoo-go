@@ -151,7 +151,11 @@ func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.
 // NewInstance instantiates a new ConsumergroupInstance inside this consumer group,
 // using a newly generated ID.
 func (cg *Consumergroup) NewInstance() *ConsumergroupInstance {
-	id, err := generateConsumerInstanceID()
+	return cg.NewInstanceRealIp("")
+}
+
+func (cg *Consumergroup) NewInstanceRealIp(realIp string) *ConsumergroupInstance {
+	id, err := generateConsumerInstanceID(realIp)
 	if err != nil {
 		panic(err)
 	}
@@ -449,7 +453,7 @@ func generateUUID() (string, error) {
 
 // generateConsumerInstanceID generates a consumergroup Instance ID
 // that is almost certain to be unique.
-func generateConsumerInstanceID() (string, error) {
+func generateConsumerInstanceID(realIp string) (string, error) {
 	uuid, err := generateUUID()
 	if err != nil {
 		return "", err
@@ -460,7 +464,12 @@ func generateConsumerInstanceID() (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s:%s", hostname, uuid), nil
+	if realIp == "" {
+		return fmt.Sprintf("%s:%s", hostname, uuid), nil
+	} else {
+		return fmt.Sprintf("%s@%s:%s", hostname, realIp, uuid), nil
+	}
+
 }
 
 // Find returns the consumergroup with the given name if it exists in the list.

@@ -209,7 +209,7 @@ func (p *Partition) state() (partitionState, error) {
 	node := fmt.Sprintf("%s/brokers/topics/%s/partitions/%d/state", p.topic.kz.conf.Chroot, p.topic.Name, p.ID)
 	value, _, err := p.topic.kz.conn.Get(node)
 	if err != nil {
-		return state, err
+		return state, fmt.Errorf("%s %v", node, err)
 	}
 
 	if err := json.Unmarshal(value, &state); err != nil {

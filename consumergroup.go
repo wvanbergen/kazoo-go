@@ -168,6 +168,34 @@ func (cg *Consumergroup) Instance(id string) *ConsumergroupInstance {
 	return &ConsumergroupInstance{cg: cg, ID: id}
 }
 
+func (cg *Consumergroup) OnlineTopics() (map[string]struct{}, error) {
+	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	children, _, err := cg.kz.conn.Children(node)
+	if err != nil {
+		return nil, err
+	}
+
+	topics := make(map[string]struct{}, len(children))
+	for _, cgi := range children {
+		node = fmt.Sprintf("%s/consumers/%s/ids/%s", cg.kz.conf.Chroot, cg.Name, cgi)
+		val, _, err := cg.kz.conn.Get(node)
+		if err != nil {
+			return nil, err
+		}
+
+		reg := Registration{}
+		if err := json.Unmarshal(val, &reg); err != nil {
+			return nil, err
+		}
+
+		for topic := range reg.Subscription {
+			topics[topic] = struct{}{}
+		}
+
+	}
+	return topics, nil
+}
+
 // PartitionOwner returns the ConsumergroupInstance that has claimed the given partition.
 // This can be nil if nobody has claimed it yet.
 func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*ConsumergroupInstance, error) {

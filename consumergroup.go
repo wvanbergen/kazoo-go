@@ -180,6 +180,11 @@ func (cg *Consumergroup) OnlineTopics() (map[string]struct{}, error) {
 		node = fmt.Sprintf("%s/consumers/%s/ids/%s", cg.kz.conf.Chroot, cg.Name, cgi)
 		val, _, err := cg.kz.conn.Get(node)
 		if err != nil {
+			if err == zk.ErrNoNode {
+				// this instance gone
+				continue
+			}
+
 			return nil, err
 		}
 

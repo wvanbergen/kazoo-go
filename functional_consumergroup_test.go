@@ -1,12 +1,12 @@
 package kazoo
 
 import (
+	"reflect"
+	"sync"
 	"testing"
 	"time"
 
-	//	"github.com/samuel/go-zookeeper/zk"
 	"github.com/samuel/go-zookeeper/zk"
-	"reflect"
 )
 
 func TestConsumergroups(t *testing.T) {
@@ -520,6 +520,80 @@ func TestConsumergroupOffsets(t *testing.T) {
 	}
 }
 
+func TestConsumergroupResetOffsetsRace(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupResetOffsetsRace")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	offsets, err := cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(offsets) > 0 {
+		t.Errorf("A new consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
+	}
+
+	if err := cg.CommitOffset("test", 0, 1234); err != nil {
+		t.Error(err)
+	}
+
+	if err := cg.CommitOffset("test", 1, 2345); err != nil {
+		t.Error(err)
+	}
+
+	offsets, err = cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if offsets["test"][0] == 1234 && offsets["test"][1] == 2345 {
+		t.Log("All offsets present in offset map")
+	} else {
+		t.Logf("Offset map not as expected: %v", offsets)
+	}
+
+	cg2 := kz.Consumergroup("test.kazoo.TestConsumergroupResetOffsetsRace")
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if err := cg2.ResetOffsets(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := cg.ResetOffsets(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	wg.Wait()
+
+	offsets, err = cg.FetchAllOffsets()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(offsets) > 0 {
+		t.Errorf("After a reset, consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
+	}
+}
+
 func TestConsumergroupResetOffsets(t *testing.T) {
 	kz, err := NewKazoo(zookeeperPeers, nil)
 	if err != nil {
@@ -581,5 +655,4 @@ func TestConsumergroupResetOffsets(t *testing.T) {
 	if len(offsets) > 0 {
 		t.Errorf("After a reset, consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
 	}
-
 }

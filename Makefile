@@ -17,6 +17,7 @@ confluent/confluent.tgz:
 
 confluent/EXTRACTED: confluent/confluent.tgz
 	tar xzf confluent/confluent.tgz -C confluent --strip-components 1 && mkdir confluent/logs && touch confluent/EXTRACTED
+	echo "delete.topic.enable=true" >> confluent/etc/kafka/server.properties
 
 # Zookeeper tasks
 

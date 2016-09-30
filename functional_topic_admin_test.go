@@ -59,7 +59,9 @@ func TestCreateDeleteTopic(t *testing.T) {
 		topicMap[test.name] = true
 	}
 
-	// wait for deletion (up to 15s)
+	totalToDelete := len(topicMap)
+
+	// wait for deletion (up to 60s)
 	for i := 0; i < 15; i++ {
 		for name := range topicMap {
 			topic := &Topic{kz: kz, Name: name}
@@ -75,6 +77,6 @@ func TestCreateDeleteTopic(t *testing.T) {
 	}
 
 	if len(topicMap) != 0 {
-		t.Errorf("Unable to delete all topics %d remaining after 15 seconds", len(topicMap))
+		t.Errorf("Unable to delete all topics %d out of %d remaining after 15 seconds", len(topicMap), totalToDelete)
 	}
 }

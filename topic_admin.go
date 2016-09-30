@@ -23,7 +23,7 @@ func (kz *Kazoo) CreateTopic(name string, partitionCount int, replicationFactor 
 		return ErrTopicExists
 	}
 
-	brokerList, err := kz.BrokerIDList()
+	brokerList, err := kz.brokerIDList()
 	if err != nil {
 		return err
 	}
@@ -43,11 +43,11 @@ func (kz *Kazoo) CreateTopic(name string, partitionCount int, replicationFactor 
 		return err
 	}
 
-	if err = kz.createOrUpdate(topic.getConfigPath(), configData, false); err != nil {
+	if err = kz.createOrUpdate(topic.configPath(), configData, false); err != nil {
 		return err
 	}
 
-	if err = kz.create(topic.getMetadataPath(), partitionData, false); err != nil {
+	if err = kz.create(topic.metadataPath(), partitionData, false); err != nil {
 		return err
 	}
 

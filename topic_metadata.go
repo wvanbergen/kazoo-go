@@ -77,12 +77,12 @@ func (kz *Kazoo) Topic(topic string) *Topic {
 
 // Exists returns true if the topic exists on the Kafka cluster.
 func (t *Topic) Exists() (bool, error) {
-	return t.kz.exists(t.getMetadataPath())
+	return t.kz.exists(t.metadataPath())
 }
 
 // Partitions returns a list of all partitions for the topic.
 func (t *Topic) Partitions() (PartitionList, error) {
-	value, _, err := t.kz.conn.Get(t.getMetadataPath())
+	value, _, err := t.kz.conn.Get(t.metadataPath())
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (t *Topic) Partitions() (PartitionList, error) {
 
 // WatchPartitions returns a list of all partitions for the topic, and watches the topic for changes.
 func (t *Topic) WatchPartitions() (PartitionList, <-chan zk.Event, error) {
-	value, _, c, err := t.kz.conn.GetW(t.getMetadataPath())
+	value, _, c, err := t.kz.conn.GetW(t.metadataPath())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,7 +106,7 @@ type topicMetadata struct {
 	Partitions map[string][]int32 `json:"partitions"`
 }
 
-func (t *Topic) getMetadataPath() string {
+func (t *Topic) metadataPath() string {
 	return fmt.Sprintf("%s/brokers/topics/%s", t.kz.conf.Chroot, t.Name)
 }
 
@@ -164,10 +164,10 @@ func (t *Topic) generatePartitionAssignments(brokers []int32, partitionCount int
 	for p := 0; p < partitionCount; p++ {
 		partition := &Partition{topic: t, ID: int32(p), Replicas: make([]int32, replicationFactor)}
 
-		// assign primary to the current broker and all
-		// other replicas to subsequent brokers
+		brokerIndices := rand.Perm(len(brokers))[0:replicationFactor]
+
 		for r := 0; r < replicationFactor; r++ {
-			partition.Replicas[r] = brokers[(brokerIdx+r)%brokerCount]
+			partition.Replicas[r] = brokers[brokerIndices[r]]
 		}
 
 		result[p] = partition
@@ -196,7 +196,7 @@ func (t *Topic) validatePartitionAssignments(brokers []int32, assignment Partiti
 
 	// ensure all ids are unique and sequential
 	maxPartitionID := int32(-1)
-	partitionIDmap := make(map[int32]bool, len(assignment))
+	partitionIDmap := make(map[int32]struct{}, len(assignment))
 
 	for _, part := range assignment {
 		if part == nil {
@@ -205,14 +205,14 @@ func (t *Topic) validatePartitionAssignments(brokers []int32, assignment Partiti
 		if maxPartitionID < part.ID {
 			maxPartitionID = part.ID
 		}
-		partitionIDmap[part.ID] = true
+		partitionIDmap[part.ID] = struct{}{}
 
 		// all partitions require the same replica count
 		if len(part.Replicas) != replicaCount {
 			return ErrInvalidReplicaCount
 		}
 
-		rset := make(map[int32]bool, replicaCount)
+		rset := make(map[int32]struct{}, replicaCount)
 		for _, r := range part.Replicas {
 			// replica must be assigned to a valid broker
 			found := false
@@ -225,7 +225,7 @@ func (t *Topic) validatePartitionAssignments(brokers []int32, assignment Partiti
 			if !found {
 				return ErrInvalidBroker
 			}
-			rset[r] = true
+			rset[r] = struct{}{}
 		}
 		// broker assignments for a partition must be unique
 		if len(rset) != replicaCount {
@@ -257,7 +257,7 @@ type topicConfig struct {
 }
 
 // getConfigPath returns the zk node path for a topic's config
-func (t *Topic) getConfigPath() string {
+func (t *Topic) configPath() string {
 	return fmt.Sprintf("%s/config/topics/%s", t.kz.conf.Chroot, t.Name)
 }
 
@@ -283,7 +283,7 @@ func (t *Topic) marshalConfig(data map[string]string) ([]byte, error) {
 
 // Config returns topic-level configuration settings as a map.
 func (t *Topic) Config() (map[string]string, error) {
-	value, _, err := t.kz.conn.Get(t.getConfigPath())
+	value, _, err := t.kz.conn.Get(t.configPath())
 	if err != nil {
 		return nil, err
 	}

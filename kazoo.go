@@ -141,7 +141,7 @@ func (kz *Kazoo) BrokerList() ([]string, error) {
 }
 
 // BrokerIDList returns a sorted slice of broker ids that can be used for manipulating topics and partitions.`.
-func (kz *Kazoo) BrokerIDList() ([]int32, error) {
+func (kz *Kazoo) brokerIDList() ([]int32, error) {
 	brokers, err := kz.Brokers()
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (kz *Kazoo) BrokerIDList() ([]int32, error) {
 	}
 
 	// return sorted list to match the offical kafka sdks
-	sort.Sort(Int32Slice(result))
+	sort.Sort(int32Slice(result))
 
 	return result, nil
 }
@@ -255,8 +255,8 @@ func (kz *Kazoo) createOrUpdate(node string, value []byte, ephemeral bool) (err 
 }
 
 // sort interface for int32 slice
-type Int32Slice []int32
+type int32Slice []int32
 
-func (s Int32Slice) Len() int           { return len(s) }
-func (s Int32Slice) Less(i, j int) bool { return s[i] < s[j] }
-func (s Int32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s int32Slice) Len() int           { return len(s) }
+func (s int32Slice) Less(i, j int) bool { return s[i] < s[j] }
+func (s int32Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

@@ -63,7 +63,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		Timeout: 1 * time.Second,
-		Logger: zk.DefaultLogger,
+		Logger:  zk.DefaultLogger,
 	}
 }
 

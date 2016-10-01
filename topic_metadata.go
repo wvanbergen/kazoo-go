@@ -101,6 +101,16 @@ func (t *Topic) WatchPartitions() (PartitionList, <-chan zk.Event, error) {
 	return list, c, err
 }
 
+// Watch watches the topic for changes.
+func (t *Topic) Watch() (<-chan zk.Event, error) {
+	_, _, c, err := t.kz.conn.GetW(t.metadataPath())
+	if err != nil {
+		return nil, err
+	}
+
+	return c, err
+}
+
 type topicMetadata struct {
 	Version    int                `json:"version"`
 	Partitions map[string][]int32 `json:"partitions"`

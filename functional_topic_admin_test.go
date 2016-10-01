@@ -80,3 +80,44 @@ func TestCreateDeleteTopic(t *testing.T) {
 		t.Errorf("Unable to delete all topics %d out of %d remaining after 15 seconds", len(topicMap), totalToDelete)
 	}
 }
+
+func TestDeleteTopicSync(t *testing.T) {
+
+	kz, err := NewKazoo(zookeeperPeers, nil)
+
+	topicName := "test.admin.1"
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = kz.CreateTopic(topicName, 1, 1, nil)
+
+	if err != nil {
+		t.Errorf("Unexpected error (%v) creating topic %s", err, topicName)
+	}
+
+	topic := kz.Topic("test.admin.1")
+	_, err = topic.Config()
+
+	if err != nil {
+		t.Errorf("Unable to get topic config (%v) for %s", err, topicName)
+	}
+
+	// delete the topic synchronously
+	err = kz.DeleteTopicSync(topicName, 0)
+
+	if err != nil {
+		t.Errorf("Unexpected error (%v) while deleting topic synchronously", err)
+	}
+
+	exists, err := topic.Exists()
+
+	if err != nil {
+		t.Errorf("Unexpected error (%v) while checking if topic exists", err)
+	}
+
+	if exists {
+		t.Error("Deleted topic still exists.")
+	}
+}

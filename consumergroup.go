@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samuel/go-zookeeper/zk"
@@ -389,7 +390,7 @@ func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, erro
 	} else if err != nil {
 		return -1, err
 	}
-	return strconv.ParseInt(string(val), 10, 64)
+	return strconv.ParseInt(strings.TrimSpace(string(val)), 10, 64)
 }
 
 // FetchOffset retrieves all the commmitted offsets for a group

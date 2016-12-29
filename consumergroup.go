@@ -40,10 +40,11 @@ type ConsumergroupList []*Consumergroup
 type ConsumergroupInstanceList []*ConsumergroupInstance
 
 type Registration struct {
-	Pattern      RegPattern     `json:"pattern"`
-	Subscription map[string]int `json:"subscription"`
-	Timestamp    int64          `json:"timestamp"`
-	Version      RegVersion     `json:"version"`
+	Pattern      RegPattern        `json:"pattern"`
+	Subscription map[string]int    `json:"subscription"`
+	Timestamp    int64             `json:"timestamp"`
+	Version      RegVersion        `json:"version"`
+	Metadata     map[string]string `json:"metadata"`
 }
 
 type RegPattern string
@@ -236,7 +237,7 @@ func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []by
 }
 
 // Register registers the consumergroup instance in Zookeeper.
-func (cgi *ConsumergroupInstance) Register(topics []string) error {
+func (cgi *ConsumergroupInstance) Register(topics []string, metadata map[string]string) error {
 	subscription := make(map[string]int)
 	for _, topic := range topics {
 		subscription[topic] = 1
@@ -247,6 +248,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 		Subscription: subscription,
 		Timestamp:    time.Now().Unix(),
 		Version:      RegDefaultVersion,
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return err

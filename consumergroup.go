@@ -169,6 +169,17 @@ func (cg *Consumergroup) Instance(id string) *ConsumergroupInstance {
 	return &ConsumergroupInstance{cg: cg, ID: id}
 }
 
+// OnlineConsumers returns current online consumer instance count of the same group.
+func (cg *Consumergroup) OnlineConsumers() int {
+	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	children, _, err := cg.kz.conn.Children(node)
+	if err != nil {
+		return 0
+	}
+
+	return len(children)
+}
+
 func (cg *Consumergroup) OnlineTopics() (map[string]struct{}, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
 	children, _, err := cg.kz.conn.Children(node)

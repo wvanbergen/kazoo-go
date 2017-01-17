@@ -100,7 +100,7 @@ func TestConsumergroupInstances(t *testing.T) {
 	if instance1.ID == "" {
 		t.Error("It should generate a valid instance ID")
 	}
-	if err := instance1.Register([]string{"topic"}); err != nil {
+	if err := instance1.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -114,12 +114,12 @@ func TestConsumergroupInstances(t *testing.T) {
 	}
 
 	// Try to register an instance with the same ID.
-	if err := cg.Instance(instance1.ID).Register([]string{"topic"}); err != ErrInstanceAlreadyRegistered {
+	if err := cg.Instance(instance1.ID).Register([]string{"topic"}, map[string]string{}); err != ErrInstanceAlreadyRegistered {
 		t.Error("The instance should already be registered")
 	}
 
 	instance2 := cg.Instance("test")
-	if err := instance2.Register([]string{"topic"}); err != nil {
+	if err := instance2.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -188,7 +188,7 @@ func TestConsumergroupInstanceCrash(t *testing.T) {
 
 	// Instantiate and register the instance.
 	instance := crashingCG.NewInstance()
-	if err := instance.Register([]string{"test.1"}); err != nil {
+	if err := instance.Register([]string{"test.1"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -237,7 +237,7 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 
 	instance := cg.NewInstance()
-	if err := instance.Register([]string{"topic"}); err != nil {
+	if err := instance.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -290,11 +290,11 @@ func TestConsumergroupInstanceClaimPartition(t *testing.T) {
 	// Create two instances for this consumergroup
 
 	i1 := cg.NewInstance()
-	if err := i1.Register([]string{"test.4"}); err != nil {
+	if err := i1.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 	i2 := cg.NewInstance()
-	if err := i2.Register([]string{"test.4"}); err != nil {
+	if err := i2.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -382,7 +382,7 @@ func TestConsumergroupInstanceClaimPartitionSame(t *testing.T) {
 	}()
 
 	instance := cg.NewInstance()
-	if err := instance.Register([]string{"test.4"}); err != nil {
+	if err := instance.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -425,7 +425,7 @@ func TestConsumergroupInstanceWatchPartitionClaim(t *testing.T) {
 	}()
 
 	instance1 := cg.NewInstance()
-	if err := instance1.Register([]string{"test.4"}); err != nil {
+	if err := instance1.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 

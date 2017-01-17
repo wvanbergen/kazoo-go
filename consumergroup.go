@@ -50,7 +50,7 @@ type Registration struct {
 type PartitionRegistration struct {
 	From     int64 `json:"from"`
 	To       int64 `json:"to"`
-	Deadline int64 `json:"deadline"`
+	Duration int64 `json:"duration"`
 }
 
 type RegPattern string

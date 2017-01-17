@@ -15,11 +15,11 @@ func TestTopics(t *testing.T) {
 		t.Error(err)
 	}
 
-	existingTopic := topics.Find("test.4")
+	existingTopic := topics.Find("test.5")
 	if existingTopic == nil {
-		t.Error("Expected topic test.4 to be returned")
-	} else if existingTopic.Name != "test.4" {
-		t.Error("Expected topic test.4 to have its name set")
+		t.Error("Expected topic test.5 to be returned")
+	} else if existingTopic.Name != "test.5" {
+		t.Error("Expected topic test.5 to have its name set")
 	}
 
 	nonexistingTopic := topics.Find("__nonexistent__")
@@ -36,13 +36,13 @@ func TestTopicPartitions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	partitions, err := kz.Topic("test.4").Partitions()
+	partitions, err := kz.Topic("test.5").Partitions()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(partitions) != 4 {
-		t.Errorf("Expected test.4 to have 4 partitions")
+		t.Errorf("Expected test.5 to have 4 partitions")
 	}
 
 	brokers, err := kz.Brokers()
@@ -61,7 +61,7 @@ func TestTopicPartitions(t *testing.T) {
 		}
 
 		if _, ok := brokers[leader]; !ok {
-			t.Errorf("Expected the leader of test.4/%d to be an existing broker.", partition.ID)
+			t.Errorf("Expected the leader of test.5/%d to be an existing broker.", partition.ID)
 		}
 
 		isr, err := partition.ISR()
@@ -71,7 +71,7 @@ func TestTopicPartitions(t *testing.T) {
 
 		for _, brokerID := range isr {
 			if _, ok := brokers[brokerID]; !ok {
-				t.Errorf("Expected all ISRs of test.4/%d to be existing brokers.", partition.ID)
+				t.Errorf("Expected all ISRs of test.5/%d to be existing brokers.", partition.ID)
 			}
 		}
 	}
@@ -85,12 +85,12 @@ func TestTopicConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	topicConfig, err := kz.Topic("test.4").Config()
+	topicConfig, err := kz.Topic("test.5").Config()
 	if err != nil {
 		t.Error(err)
 	}
 	if topicConfig["retention.ms"] != "604800000" {
-		t.Error("Expected retention.ms config for test.4 to be set to 604800000")
+		t.Error("Expected retention.ms config for test.5 to be set to 604800000")
 	}
 
 	topicConfig, err = kz.Topic("test.1").Config()

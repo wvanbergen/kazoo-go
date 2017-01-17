@@ -48,8 +48,9 @@ type Registration struct {
 }
 
 type PartitionRegistration struct {
-	From int64 `json:"from"`
-	To   int64 `json:"to"`
+	From     int64 `json:"from"`
+	To       int64 `json:"to"`
+	Deadline int64 `json:"deadline"`
 }
 
 type RegPattern string

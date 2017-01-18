@@ -349,7 +349,9 @@ func (cgi *ConsumergroupInstance) RegisterPartitionRegistration(topic string, pa
 func (cgi *ConsumergroupInstance) PartitionRegistration(topic string, partition int32) (*PartitionRegistration, error) {
 	node := fmt.Sprintf("%s/consumers/%s/metas/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
 	data, _, err := cgi.cg.kz.conn.Get(node)
-	if err != nil {
+	if err == zk.ErrNoNode {
+		return nil, err
+	} else if err != nil {
 		return nil, err
 	}
 	registration := new(PartitionRegistration)

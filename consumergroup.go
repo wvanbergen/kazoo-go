@@ -40,10 +40,17 @@ type ConsumergroupList []*Consumergroup
 type ConsumergroupInstanceList []*ConsumergroupInstance
 
 type Registration struct {
-	Pattern      RegPattern     `json:"pattern"`
-	Subscription map[string]int `json:"subscription"`
-	Timestamp    int64          `json:"timestamp"`
-	Version      RegVersion     `json:"version"`
+	Pattern      RegPattern        `json:"pattern"`
+	Subscription map[string]int    `json:"subscription"`
+	Timestamp    int64             `json:"timestamp"`
+	Version      RegVersion        `json:"version"`
+	Metadata     map[string]string `json:"metadata"`
+}
+
+type PartitionRegistration struct {
+	From     int64 `json:"from"`
+	To       int64 `json:"to"`
+	Duration int64 `json:"duration"`
 }
 
 type RegPattern string
@@ -236,7 +243,7 @@ func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []by
 }
 
 // Register registers the consumergroup instance in Zookeeper.
-func (cgi *ConsumergroupInstance) Register(topics []string) error {
+func (cgi *ConsumergroupInstance) Register(topics []string, metadata map[string]string) error {
 	subscription := make(map[string]int)
 	for _, topic := range topics {
 		subscription[topic] = 1
@@ -247,6 +254,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 		Subscription: subscription,
 		Timestamp:    time.Now().Unix(),
 		Version:      RegDefaultVersion,
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return err
@@ -307,6 +315,62 @@ func (cgi *ConsumergroupInstance) ReleasePartition(topic string, partition int32
 
 	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
 	return cgi.cg.kz.conn.Delete(node, 0)
+}
+
+//make sure your cgi is the owner of the partition
+func (cgi *ConsumergroupInstance) RegisterPartitionRegistration(topic string, partition int32, registration *PartitionRegistration) error {
+	//check register firstly
+	//	if registered, err := cgi.Registered(); err != nil {
+	//		return err
+	//	} else if !registered {
+	//		return ErrInstanceNotRegistered
+	//	}
+	//
+	//check partition owner secondly
+	//	if owner, err := cgi.cg.PartitionOwner(topic, partition); err != nil {
+	//		return err
+	//	} else if owner.ID != cgi.ID {
+	//		return ErrPartitionClaimedByOther
+	//	}
+	//
+	//register PartitionRegistration thirdly
+	root := fmt.Sprintf("%s/consumers/%s/metas/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic)
+	if err := cgi.cg.kz.mkdirRecursive(root); err != nil {
+		return err
+	}
+	meta, err := json.Marshal(registration)
+	if err != nil {
+		return err
+	}
+	node := fmt.Sprintf("%s/%d", root, partition)
+	return cgi.cg.kz.create(node, meta, false)
+}
+
+func (cgi *ConsumergroupInstance) PartitionRegistration(topic string, partition int32) (*PartitionRegistration, error) {
+	node := fmt.Sprintf("%s/consumers/%s/metas/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
+	data, _, err := cgi.cg.kz.conn.Get(node)
+	if err == zk.ErrNoNode {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	registration := new(PartitionRegistration)
+	err = json.Unmarshal(data, registration)
+	if err == zk.ErrNoNode {
+		err = nil
+	}
+	return registration, err
+}
+
+func (cgi *ConsumergroupInstance) DeregisterPartitionRegistration(topic string, partition int32) error {
+	node := fmt.Sprintf("%s/consumers/%s/metas/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
+	exists, stat, err := cgi.cg.kz.conn.Exists(node)
+	if err != nil {
+		return err
+	} else if !exists {
+		return nil
+	}
+	return cgi.cg.kz.conn.Delete(node, stat.Version)
 }
 
 // Topics retrieves the list of topics the consumergroup has claimed ownership of at some point.

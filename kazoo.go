@@ -213,6 +213,13 @@ func (kz *Kazoo) mkdirRecursive(node string) (err error) {
 		}
 	}
 
+	//if the ancestor nodes has existed,
+	//and we have no create permission for that node
+	//Create will retrun "not autheticated" but not "node exsit"
+	//so we check it first
+	if exist, _ := kz.exists(node); exist {
+		return
+	}
 	_, err = kz.conn.Create(node, nil, 0, zk.WorldACL(zk.PermAll))
 	if err == zk.ErrNodeExists {
 		err = nil

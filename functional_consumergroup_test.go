@@ -100,7 +100,7 @@ func TestConsumergroupInstances(t *testing.T) {
 	if instance1.ID == "" {
 		t.Error("It should generate a valid instance ID")
 	}
-	if err := instance1.Register([]string{"topic"}); err != nil {
+	if err := instance1.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -114,12 +114,12 @@ func TestConsumergroupInstances(t *testing.T) {
 	}
 
 	// Try to register an instance with the same ID.
-	if err := cg.Instance(instance1.ID).Register([]string{"topic"}); err != ErrInstanceAlreadyRegistered {
+	if err := cg.Instance(instance1.ID).Register([]string{"topic"}, map[string]string{}); err != ErrInstanceAlreadyRegistered {
 		t.Error("The instance should already be registered")
 	}
 
 	instance2 := cg.Instance("test")
-	if err := instance2.Register([]string{"topic"}); err != nil {
+	if err := instance2.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -188,7 +188,7 @@ func TestConsumergroupInstanceCrash(t *testing.T) {
 
 	// Instantiate and register the instance.
 	instance := crashingCG.NewInstance()
-	if err := instance.Register([]string{"test.1"}); err != nil {
+	if err := instance.Register([]string{"test.1"}, map[string]string{}); err != nil {
 		t.Error(err)
 	}
 
@@ -237,7 +237,7 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 
 	instance := cg.NewInstance()
-	if err := instance.Register([]string{"topic"}); err != nil {
+	if err := instance.Register([]string{"topic"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -290,11 +290,11 @@ func TestConsumergroupInstanceClaimPartition(t *testing.T) {
 	// Create two instances for this consumergroup
 
 	i1 := cg.NewInstance()
-	if err := i1.Register([]string{"test.4"}); err != nil {
+	if err := i1.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 	i2 := cg.NewInstance()
-	if err := i2.Register([]string{"test.4"}); err != nil {
+	if err := i2.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -382,7 +382,7 @@ func TestConsumergroupInstanceClaimPartitionSame(t *testing.T) {
 	}()
 
 	instance := cg.NewInstance()
-	if err := instance.Register([]string{"test.4"}); err != nil {
+	if err := instance.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -425,7 +425,7 @@ func TestConsumergroupInstanceWatchPartitionClaim(t *testing.T) {
 	}()
 
 	instance1 := cg.NewInstance()
-	if err := instance1.Register([]string{"test.4"}); err != nil {
+	if err := instance1.Register([]string{"test.4"}, map[string]string{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -478,6 +478,60 @@ func TestConsumergroupInstanceWatchPartitionClaim(t *testing.T) {
 	// Cleanup
 	if err := instance1.Deregister(); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestConsumergroupInstancePartitionRegistration(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupInstancePartitionRegistration")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	instance := cg.NewInstance()
+	if err := instance.Register([]string{"test.1"}, map[string]string{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := instance.ClaimPartition("test.1", 0); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := instance.Deregister(); err != nil {
+			t.Error(err)
+		}
+		if err := instance.ReleasePartition("test.1", 0); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	partitionRegistration := new(PartitionRegistration)
+	partitionRegistration.To = 20
+	partitionRegistration.From = 0
+
+	if err = instance.DeregisterPartitionRegistration("test.1", 0); err != zk.ErrNoNode && err != nil {
+		t.Fatal(err)
+	}
+	if err = instance.RegisterPartitionRegistration("test.1", 0, partitionRegistration); err != nil {
+		t.Fatal(err)
+	}
+	if partitionRegistration, err = instance.PartitionRegistration("test.1", 0); err != nil {
+		t.Fatal(err)
+	} else if partitionRegistration.From != 0 && partitionRegistration.To != 20 {
+		t.Fatal("PartitionRegistration data invalid:%#v", *partitionRegistration)
+	}
+
+	if err := instance.DeregisterPartitionRegistration("test.1", 0); err != nil {
+		t.Fatal(err)
 	}
 }
 

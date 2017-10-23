@@ -104,40 +104,37 @@ func (cg *Consumergroup) Delete() error {
 // Instances returns a map of all running instances inside this consumergroup.
 func (cg *Consumergroup) Instances() (ConsumergroupInstanceList, error) {
 	root := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
-	if exists, err := cg.kz.exists(root); err != nil {
+	cgis, _, err := cg.kz.conn.Children(root)
+	if err != nil {
+		if err == zk.ErrNoNode {
+			result := make(ConsumergroupInstanceList, 0)
+			return result, nil
+		}
 		return nil, err
-	} else if exists {
-		cgis, _, err := cg.kz.conn.Children(root)
-		if err != nil {
-			return nil, err
-		}
-
-		result := make(ConsumergroupInstanceList, 0, len(cgis))
-		for _, cgi := range cgis {
-			result = append(result, cg.Instance(cgi))
-		}
-		return result, nil
-	} else {
-		result := make(ConsumergroupInstanceList, 0)
-		return result, nil
 	}
+
+	result := make(ConsumergroupInstanceList, 0, len(cgis))
+	for _, cgi := range cgis {
+		result = append(result, cg.Instance(cgi))
+	}
+	return result, nil
 }
 
 // WatchInstances returns a ConsumergroupInstanceList, and a channel that will be closed
 // as soon the instance list changes.
 func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.Event, error) {
 	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
-	if exists, err := cg.kz.exists(node); err != nil {
-		return nil, nil, err
-	} else if !exists {
+	cgis, _, c, err := cg.kz.conn.ChildrenW(node)
+	if err != nil {
+		if err != zk.ErrNoNode {
+			return nil, nil, err
+		}
 		if err := cg.kz.mkdirRecursive(node); err != nil {
 			return nil, nil, err
 		}
-	}
-
-	cgis, _, c, err := cg.kz.conn.ChildrenW(node)
-	if err != nil {
-		return nil, nil, err
+		if cgis, _, c, err = cg.kz.conn.ChildrenW(node); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	result := make(ConsumergroupInstanceList, 0, len(cgis))

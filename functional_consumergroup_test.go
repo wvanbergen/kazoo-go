@@ -242,7 +242,7 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 
 	// The instance watch should have been triggered
-	<-c
+	assertWatchTriggered(t, c, 5*time.Second)
 
 	instances, c, err = cg.WatchInstances()
 	if err != nil {
@@ -258,7 +258,7 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 
 	// The instance watch should have been triggered again
-	<-c
+	assertWatchTriggered(t, c, 5*time.Second)
 
 	instances, err = cg.Instances()
 	if err != nil {
@@ -267,6 +267,72 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 
 	if len(instances) != 0 {
 		t.Error("Expected 0 running instances")
+	}
+}
+
+func TestConsumergroupInstanceWatchRegistration(t *testing.T) {
+	kz, err := NewKazoo(zookeeperPeers, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assertSuccessfulClose(t, kz)
+
+	cg := kz.Consumergroup("test.kazoo.TestConsumergroupWatchRegistration")
+	if err := cg.Create(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cg.Delete(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	instance := cg.NewInstance()
+	if err := instance.Register([]string{"topic"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set a watch and make sure that it does not trigger on its own.
+	reg, c, err := instance.WatchRegistration()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reflect.DeepEqual(reg.Subscription, map[string]int{}) {
+		t.Fatalf("Bad subscription, got=%v", reg.Subscription)
+	}
+	assertWatchNotTriggered(t, c, 200*time.Millisecond)
+
+	// The watch is triggered by an update.
+	if err = instance.UpdateRegistration([]string{"foo", "bar"}); err != nil {
+		t.Fatal(err)
+	}
+	assertWatchTriggered(t, c, 5*time.Second)
+
+	// Update registration.
+	if err = instance.UpdateRegistration([]string{"foo", "bazz"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set a watch again.
+	reg, c, err = instance.WatchRegistration()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(reg.Subscription, map[string]int{"foo": 1, "bazz": 1}) {
+		t.Fatalf("Bad subscription, got=%v", reg.Subscription)
+	}
+	assertWatchNotTriggered(t, c, 200*time.Millisecond)
+
+	// A watch is triggered by any update operation even if the value does not
+	// change.
+	if err = instance.UpdateRegistration([]string{"foo", "bazz"}); err != nil {
+		t.Fatal(err)
+	}
+	assertWatchTriggered(t, c, 5*time.Second)
+
+	// Cleanup
+	if err := instance.Deregister(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -654,5 +720,21 @@ func TestConsumergroupResetOffsets(t *testing.T) {
 
 	if len(offsets) > 0 {
 		t.Errorf("After a reset, consumergroup shouldn't have any offsets set, but found offsets for %d topics", len(offsets))
+	}
+}
+
+func assertWatchTriggered(t *testing.T, ch <-chan zk.Event, timeout time.Duration) {
+	select {
+	case <-ch:
+	case <-time.After(timeout):
+		t.Fatal("Watch is not triggered")
+	}
+}
+
+func assertWatchNotTriggered(t *testing.T, ch <-chan zk.Event, timeout time.Duration) {
+	select {
+	case <-ch:
+		t.Fatal("Watch is not supposed to be triggered")
+	case <-time.After(timeout):
 	}
 }

@@ -232,10 +232,16 @@ func (kz *Kazoo) mkdirRecursive(node string) (err error) {
 		}
 	}
 
-	_, err = kz.conn.Create(node, nil, 0, zk.WorldACL(zk.PermAll))
-	if err == zk.ErrNodeExists {
-		err = nil
+	exists, _, err := kz.conn.Exists(node)
+	if err != nil {
+		return
 	}
+
+	if !exists {
+		_, err = kz.conn.Create(node, nil, 0, zk.WorldACL(zk.PermAll))
+		return
+	}
+
 	return
 }
 

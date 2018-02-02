@@ -92,7 +92,7 @@ func TestConsumergroupInstances(t *testing.T) {
 
 	instance1 := cg.NewInstance()
 	// Make sure that the instance is unregistered.
-	if reg, err := instance1.Registration(); err != zk.ErrNoNode || reg != nil {
+	if reg, err := instance1.Registration(); err != ErrInstanceNotRegistered || reg != nil {
 		t.Errorf("Expected no registration: reg=%v, err=(%v)", reg, err)
 	}
 
@@ -237,6 +237,14 @@ func TestConsumergroupWatchInstances(t *testing.T) {
 	}
 
 	instance := cg.NewInstance()
+
+	// Make sure a proper error is returned when an unregistered instance is
+	// updated.
+	err = instance.UpdateRegistration([]string{"foo"})
+	if err != ErrInstanceNotRegistered {
+		t.Fatal("Expected ErrInstanceNotRegistered")
+	}
+
 	if err := instance.Register([]string{"topic"}); err != nil {
 		t.Fatal(err)
 	}

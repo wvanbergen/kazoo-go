@@ -129,7 +129,31 @@ func (kz *Kazoo) Brokers() (map[int32]string, error) {
 			return nil, err
 		}
 
-		result[int32(brokerID)] = fmt.Sprintf("%s:%d", brokerNode.Host, brokerNode.Port)
+		if len(brokerNode.Host) == 0 || brokerNode.Port == -1 {
+			type brokerEndpoints struct {
+                		Endpoints []string `json:"endpoints"`
+		        }
+			var brokerEP brokerEndpoints
+
+			if err := json.Unmarshal(value, &brokerEP); err != nil {
+                        	return nil, err
+        	        }
+
+			if len(brokerEP.Endpoints) == 0 {
+                        	return nil, err
+			}
+
+			// take first endpoint in the list as the only valid host
+			listenerTokens := strings.SplitN(brokerEP.Endpoints[0], "://", 2)
+			if len(listenerTokens) < 2 {
+                        	return nil, err
+			}
+
+			result[int32(brokerID)] = listenerTokens[1]
+
+		} else {
+			result[int32(brokerID)] = fmt.Sprintf("%s:%d", brokerNode.Host, brokerNode.Port)
+		}
 	}
 
 	return result, nil

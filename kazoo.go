@@ -49,7 +49,7 @@ type Kazoo struct {
 
 // Config holds configuration values f.
 type Config struct {
-	// The chroot the Kafka installation is registerde under. Defaults to "".
+	// The chroot the Kafka installation is registered under. Defaults to "".
 	Chroot string
 
 	// The amount of time the Zookeeper client can be disconnected from the Zookeeper cluster

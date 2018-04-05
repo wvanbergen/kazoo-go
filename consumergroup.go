@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samuel/go-zookeeper/zk"
@@ -42,7 +43,7 @@ type ConsumergroupInstanceList []*ConsumergroupInstance
 type Registration struct {
 	Pattern      RegPattern     `json:"pattern"`
 	Subscription map[string]int `json:"subscription"`
-	Timestamp    int64          `json:"timestamp"`
+	Timestamp    string         `json:"timestamp"`
 	Version      RegVersion     `json:"version"`
 }
 
@@ -148,7 +149,11 @@ func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.
 // NewInstance instantiates a new ConsumergroupInstance inside this consumer group,
 // using a newly generated ID.
 func (cg *Consumergroup) NewInstance() *ConsumergroupInstance {
-	id, err := generateConsumerInstanceID()
+	return cg.NewInstanceRealIp("")
+}
+
+func (cg *Consumergroup) NewInstanceRealIp(realIp string) *ConsumergroupInstance {
+	id, err := generateConsumerInstanceID(realIp)
 	if err != nil {
 		panic(err)
 	}
@@ -159,6 +164,50 @@ func (cg *Consumergroup) NewInstance() *ConsumergroupInstance {
 // using an existing ID.
 func (cg *Consumergroup) Instance(id string) *ConsumergroupInstance {
 	return &ConsumergroupInstance{cg: cg, ID: id}
+}
+
+// OnlineConsumers returns current online consumer instance count of the same group.
+func (cg *Consumergroup) OnlineConsumers() int {
+	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	children, _, err := cg.kz.conn.Children(node)
+	if err != nil {
+		return 0
+	}
+
+	return len(children)
+}
+
+func (cg *Consumergroup) OnlineTopics() (map[string]struct{}, error) {
+	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	children, _, err := cg.kz.conn.Children(node)
+	if err != nil {
+		return nil, err
+	}
+
+	topics := make(map[string]struct{}, len(children))
+	for _, cgi := range children {
+		node = fmt.Sprintf("%s/consumers/%s/ids/%s", cg.kz.conf.Chroot, cg.Name, cgi)
+		val, _, err := cg.kz.conn.Get(node)
+		if err != nil {
+			if err == zk.ErrNoNode {
+				// this instance gone
+				continue
+			}
+
+			return nil, err
+		}
+
+		reg := Registration{}
+		if err := json.Unmarshal(val, &reg); err != nil {
+			return nil, err
+		}
+
+		for topic := range reg.Subscription {
+			topics[topic] = struct{}{}
+		}
+
+	}
+	return topics, nil
 }
 
 // PartitionOwner returns the ConsumergroupInstance that has claimed the given partition.
@@ -294,7 +343,7 @@ func (cgi *ConsumergroupInstance) marshalSubscription(topics []string) ([]byte, 
 	data, err := json.Marshal(&Registration{
 		Pattern:      RegPatternStatic,
 		Subscription: subscription,
-		Timestamp:    time.Now().Unix(),
+		Timestamp:    strconv.Itoa(int(time.Now().Unix())),
 		Version:      RegDefaultVersion,
 	})
 	if err != nil {
@@ -404,7 +453,7 @@ func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, erro
 	} else if err != nil {
 		return -1, err
 	}
-	return strconv.ParseInt(string(val), 10, 64)
+	return strconv.ParseInt(strings.TrimSpace(string(val)), 10, 64)
 }
 
 // FetchOffset retrieves all the commmitted offsets for a group
@@ -505,7 +554,7 @@ func generateUUID() (string, error) {
 
 // generateConsumerInstanceID generates a consumergroup Instance ID
 // that is almost certain to be unique.
-func generateConsumerInstanceID() (string, error) {
+func generateConsumerInstanceID(realIp string) (string, error) {
 	uuid, err := generateUUID()
 	if err != nil {
 		return "", err
@@ -516,7 +565,12 @@ func generateConsumerInstanceID() (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("%s:%s", hostname, uuid), nil
+	if realIp == "" {
+		return fmt.Sprintf("%s:%s", hostname, uuid), nil
+	} else {
+		return fmt.Sprintf("%s@%s:%s", hostname, realIp, uuid), nil
+	}
+
 }
 
 // Find returns the consumergroup with the given name if it exists in the list.

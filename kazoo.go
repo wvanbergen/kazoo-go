@@ -135,6 +135,93 @@ func (kz *Kazoo) Brokers() (map[int32]string, error) {
 	return result, nil
 }
 
+// Brokers returns a map of all the brokers that make part of the
+// Kafka cluster that is registered in Zookeeper and have specific protocol (PLAINTEXT, EXTERNAL, ...).
+func (kz *Kazoo) SpecificBrokers(protocol string) (map[int32]string, error) {
+	root := fmt.Sprintf("%s/brokers/ids", kz.conf.Chroot)
+	children, _, err := kz.conn.Children(root)
+	if err != nil {
+		return nil, err
+	}
+
+	type brokerEntry struct {
+		ListenerSecurityProtocolMap struct {
+			PLAINTEXT string `json:"PLAINTEXT"`
+			EXTERNAL  string `json:"EXTERNAL"`
+		} `json:"listener_security_protocol_map"`
+		Endpoints []string `json:"endpoints"`
+		JmxPort   int      `json:"jmx_port"`
+		Host      string   `json:"host"`
+		Timestamp string   `json:"timestamp"`
+		Port      int      `json:"port"`
+		Version   int      `json:"version"`
+	}
+
+	result := make(map[int32]string)
+	children:
+	for _, child := range children {
+		brokerID, err := strconv.ParseInt(child, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		value, _, err := kz.conn.Get(path.Join(root, child))
+		if err != nil {
+			return nil, err
+		}
+
+		var brokerNode brokerEntry
+		if err := json.Unmarshal(value, &brokerNode); err != nil {
+			return nil, err
+		}
+
+		for _, endpoint := range brokerNode.Endpoints {
+			if strings.Index(endpoint, strings.ToUpper(protocol)) == 0 {
+				result[int32(brokerID)] = strings.Replace(endpoint, strings.ToUpper(protocol)+"://", "", 1)
+				continue children
+			}
+		}
+
+		result[int32(brokerID)] = fmt.Sprintf("%s:%d", brokerNode.Host, brokerNode.Port)
+	}
+
+	return result, nil
+}
+
+// BrokerList returns a slice of broker addresses that can be used to connect to
+// the Kafka cluster, e.g. using `sarama.NewAsyncProducer()`.
+func (kz *Kazoo) SpecificBrokerList(protocol string) ([]string, error) {
+	brokers, err := kz.SpecificBrokers(protocol)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]string, 0, len(brokers))
+	for _, broker := range brokers {
+		result = append(result, broker)
+	}
+
+	return result, nil
+}
+
+// BrokerIDList returns a sorted slice of broker ids that can be used for manipulating topics and partitions.`.
+func (kz *Kazoo) SpecificbrokerIDList(protocol string) ([]int32, error) {
+	brokers, err := kz.SpecificBrokers(protocol)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]int32, 0, len(brokers))
+	for id := range brokers {
+		result = append(result, id)
+	}
+
+	// return sorted list to match the offical kafka sdks
+	sort.Sort(int32Slice(result))
+
+	return result, nil
+}
+
 // BrokerList returns a slice of broker addresses that can be used to connect to
 // the Kafka cluster, e.g. using `sarama.NewAsyncProducer()`.
 func (kz *Kazoo) BrokerList() ([]string, error) {
@@ -195,9 +282,9 @@ func (kz *Kazoo) Close() error {
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////
 // Util methods
-////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////
 
 // Exists checks existence of a node
 func (kz *Kazoo) exists(node string) (ok bool, err error) {

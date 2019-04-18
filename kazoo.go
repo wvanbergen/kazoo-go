@@ -112,16 +112,13 @@ func (kz *Kazoo) Brokers() (map[int32]string, error) {
 	}
 
 	type brokerEntry struct {
-		ListenerSecurityProtocolMap struct {
-			PLAINTEXT string `json:"PLAINTEXT"`
-			EXTERNAL  string `json:"EXTERNAL"`
-		} `json:"listener_security_protocol_map"`
-		Endpoints []string `json:"endpoints"`
-		JmxPort   int      `json:"jmx_port"`
-		Host      string   `json:"host"`
-		Timestamp string   `json:"timestamp"`
-		Port      int      `json:"port"`
-		Version   int      `json:"version"`
+		ListenerSecurityProtocolMap map[string]string `json:"listener_security_protocol_map"`
+		Endpoints                   []string          `json:"endpoints"`
+		JmxPort                     int               `json:"jmx_port"`
+		Host                        string            `json:"host"`
+		Timestamp                   string            `json:"timestamp"`
+		Port                        int               `json:"port"`
+		Version                     int               `json:"version"`
 	}
 
 	result := make(map[int32]string)

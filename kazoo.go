@@ -122,6 +122,7 @@ func (kz *Kazoo) Brokers() (map[int32]string, error) {
 	}
 
 	result := make(map[int32]string)
+	children:
 	for _, child := range children {
 		brokerID, err := strconv.ParseInt(child, 10, 32)
 		if err != nil {
